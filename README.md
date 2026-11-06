@@ -1,136 +1,159 @@
-# 🛒 LojaQA — Automação de Testes E2E (Playwright & TypeScript)
+# 🚀 Automação E2E & API REST - Suíte de Testes da LojaQA & Sistemas de Mercado
 
-Framework de automação de testes End-to-End (E2E) desenvolvido para o sistema de login da **LojaQA**, aplicando rigorosamente padrões avançados de engenharia de qualidade como **Page Object Model (POM)**, **Fixtures Customizadas** e **Testes Data-Driven**.
-
----
-
-## 🚀 Tecnologias e Ferramentas Utilizadas
-
-- **[Playwright Test](https://playwright.dev/)** — Motor de execução e automação E2E de alta performance.
-- **TypeScript** — Linguagem de programação fortemente tipada.
-- **Node.js (ESM / NodeNext)** — Runtime JavaScript moderno com suporte a módulos ECMAScript e tipagem estrita (`verbatimModuleSyntax`).
-- **Git** — Controle de versão.
+> **Programa FAP 2026 - Turma 4 | Formação em Avaliação e Teste de Software**  
+> **Disciplina:** Automação de Testes com Playwright  
+> **Orientador:** Prof. Alison Melo  
+> **Módulo Avaliado:** Módulo 07 — *Checkout: Pagamentos & Criação de Pedido*  
+> **Data de Apresentação:** 10/11/2026  
 
 ---
 
-## 📂 Arquitetura e Estrutura do Projeto
+## 📌 1. Visão Geral do Projeto
 
-O projeto foi estruturado seguindo o princípio da responsabilidade única e desacoplamento de seletores:
+Este repositório contém a suíte completa de automação de testes End-to-End (UI) e de API REST desenvolvida para a avaliação prática final da disciplina. O projeto simula o trabalho de engenharia de QA corporativa, aplicando boas práticas de arquitetura de software, padrão **Page Object Model (POM)**, **Data-Driven Testing (DDT)**, **Fixtures customizadas**, padrão **AAR (Arrange-Act-Assert)** e rotinas de **Teardown (limpeza de ambiente)**.
+
+Além dos testes direcionados ao **Módulo 07** da aplicação de e-commerce **LojaQA**, a suíte contempla os testes da **Seção 03 (Desafio Extra de Portfólio em Sistemas de Mercado)**, exercitando sistemas públicos de produção (UI e API).
+
+---
+
+## 🛠️ 2. Tecnologias & Ferramentas Utilizadas
+
+| Categoria | Ferramenta / Linguagem | Finalidade |
+| :--- | :--- | :--- |
+| **Linguagem Principal** | **TypeScript** (`v5.x`) | Tipagem estática, garantindo manutenibilidade e segurança no código |
+| **Framework de Testes** | **Playwright Test** (`v1.x`) | Execução de testes E2E (UI) e requisições HTTP (`{ request }`) |
+| **Arquitetura Visual** | **Page Object Model (POM)** | Encapsulamento de seletores e ações de tela (sem asserções no POM) |
+| **Relatórios** | **Playwright HTML Reporter** | Geração de relatórios executivos de testes e rastreabilidade |
+| **Gerenciador de Pacotes**| **npm / Node.js** (`v18+`) | Gerenciamento de dependências e scripts de execução |
+| **Controle de Versão** | **Git & GitHub** | Versionamento de código e hospedagem do repositório |
+
+---
+
+## 📐 3. Arquitetura do Repositório
+
+A estrutura de pastas foi idealizada para garantir separação clara de responsabilidades, alta reutilização de código e aderência estrita à rubrica de avaliação.
 
 ```text
-meu-projeto-playwright/
+lojaqa-automacao-banca/
+├── data/
+│   └── checkout.mass.ts             # Massa de dados tipada (Cenários Felizes e Tristes)
 ├── pages/
-│   └── LoginPage.ts          # Classe Page Object encapsulando elementos e ações (Zero expects)
+│   ├── CheckoutPage.ts              # Page Object do Módulo 07 (SEM expect interno)
+│   └── SauceDemoPage.ts             # Page Object do Desafio Extra E2E (SauceDemo)
 ├── fixtures/
-│   └── auth.fixture.ts       # Fixture customizada estendida com base.extend
+│   └── auth.fixture.ts              # Fixture customizada para login/sessão autenticada via API
 ├── tests/
-│   ├── login-pom.spec.ts     # Testes E2E consumindo o Page Object (Caminhos feliz, triste e regras)
-│   ├── login-data-driven.spec.ts # Testes dinâmicos em loop for...of com múltiplos cenários
-│   └── auth-fixture.spec.ts  # Testes demonstrando o uso da Fixture customizada
-├── playwright.config.ts      # Configurações globais do Playwright
-├── tsconfig.json             # Configurações estritas do TypeScript (NodeNext)
-└── package.json              # Gerenciador de dependências e metadados
+│   ├── e2e/
+│   │   ├── lojaqa-modulo-07.spec.ts # Testes E2E (UI) do Módulo 07 na LojaQA
+│   │   └── externo-e2e.spec.ts      # Desafio Extra 1: CT E2E em site externo (SauceDemo)
+│   └── api/
+│       ├── lojaqa-api-07.spec.ts    # Testes de API REST ({ request }) da LojaQA com Teardown
+│       └── externo-api.spec.ts      # Desafio Extra 2: CT de API REST pública (Reqres.in)
+├── presentation/
+│   └── apresentacao-slides.pdf      # Slides oficiais apresentados na banca (.pdf)
+├── playwright.config.ts             # Configuração global do Playwright
+├── package.json                     # Scripts e dependências do projeto
+└── README.md                        # Documentação técnica do projeto
 ```
 
 ---
 
-## 📋 Pré-requisitos
+## 🗺️ 4. Módulo Avaliado & Especificação de Rotas
 
-Antes de iniciar, certifique-se de ter instalado em sua máquina:
-- **Node.js** (Versão 18.x ou superior recomendada)
-- **npm** (Gerenciador de pacotes do Node)
+### 🛍️ Módulo 07 — LojaQA: Checkout, Pagamentos & Pedidos
+* **Aplicação Web (UI):** [LojaQA Plataforma](https://alisonmelo.github.io/tioalison-pe-t4-fap26/projetos-base/01-sistema-login/login.html)
+* **Base URL da API:** `https://api-qa-fap2026.onrender.com/api`
 
----
-
-## ⚙️ Instalação e Configuração
-
-Siga o passo a passo abaixo para configurar o ambiente do projeto do zero:
-
-1. **Acesse a pasta do projeto no terminal:**
-   ```bash
-   cd meu-projeto-playwright
-   ```
-
-2. **Instale as dependências do projeto:**
-   ```bash
-   npm install
-   ```
-
-3. **Instale os navegadores suportados pelo Playwright:**
-   ```bash
-   npx playwright install
-   ```
+#### Rotas Consumidas na API:
+| Método | Endpoint | Descrição / Objetivo | Retorno Esperado |
+| :---: | :--- | :--- | :---: |
+| `POST` | `/login` | Autenticação de credenciais de usuário | `200 OK` (Token JWT) |
+| `POST` | `/seller/products` | Setup de produto para a massa de testes | `201 Created` |
+| `POST` | `/orders` | Criação de pedido de compra e baixa atômica de estoque | `201 Created` |
+| `PUT` | `/seller/products/:id` | Soft Delete / Limpeza de massa no **Teardown** | `200 OK` |
 
 ---
 
-## 🔬 Padrões de Projeto Implementados
+## 📊 5. Matriz de Cenários de Testes (E2E & API)
 
-### 1. Page Object Model (POM) (`pages/LoginPage.ts`)
-- Encapsula todo o mapeamento de elementos (`#email`, `#password`, `#loginBtn`, `#errorMessage`, `#statusMessage`).
-- Isola a lógica de interação (`goto()`, `login()`).
-- **Regra de Ouro:** Nenhuma asserção (`expect`) está presente nas classes de Page Object, mantendo-as estritamente focadas em ações e mapeamento.
-
-### 2. Fixtures Customizadas (`fixtures/auth.fixture.ts`)
-- Utiliza o método `base.extend` do Playwright para injetar instâncias pré-configuradas de páginas e contextos autenticados de forma limpa e reutilizável.
-
-### 3. Abordagem Data-Driven (`tests/login-data-driven.spec.ts`)
-- Utiliza um array estruturado contendo diversos perfis e cenários (Cliente válido, Administrador, Lojista, Senha incorreta, E-mail não cadastrado e Campos em branco).
-- Utiliza um loop `for...of` dinâmico para gerar os testes de forma enxuta e evitar duplicação de código.
-
----
-
-## 🚀 Comandos para Executar os Testes
-
-O framework oferece suporte a múltiplos modos de execução via terminal:
-
-- **Executar todos os testes (Headless padrão):**
-  ```bash
-  npx playwright test
-  ```
-
-- **Executar com interface visual interativa (Playwright UI Mode):**
-  *(Excelente para depuração visual em tempo real)*
-  ```bash
-  npx playwright test --ui
-  ```
-
-- **Executar com o navegador visível (Headed Mode):**
-  ```bash
-  npx playwright test --headed
-  ```
-
-- **Executar um arquivo de teste específico:**
-  - Apenas testes POM:
-    ```bash
-    npx playwright test login-pom.spec.ts
-    ```
-  - Apenas testes Data-Driven:
-    ```bash
-    npx playwright test login-data-driven.spec.ts
-    ```
-  - Apenas testes de Fixtures:
-    ```bash
-    npx playwright test auth-fixture.spec.ts
-    ```
+| ID | Tipo | Cenário / Descrição | Tipo de Fluxo | Resultado Esperado |
+| :---: | :---: | :--- | :---: | :--- |
+| **CT-E2E-01** | UI | Finalizar compra com forma de pagamento **PIX** (5% OFF) | Positivo | Modal de confirmação exibido com sucesso |
+| **CT-E2E-02** | UI | Finalizar compra com **Cartão de Crédito** preenchido | Positivo | Exibição da tela de pedido confirmado |
+| **CT-E2E-03** | UI | Tentar checkout com data de validade de cartão vencida | Triste/Negativo | Exibição de mensagem de erro de validação |
+| **CT-E2E-04** | UI | Submeter formulário de checkout sem itens no carrinho | Triste/Negativo | Bloqueio de submissão e alerta na interface |
+| **CT-API-01** | API | Emitir pedido via `POST /orders` com payload válido | Positivo | Status `201 Created` e confirmação do JSON |
+| **CT-API-02** | API | Solicitar item com quantidade superior ao estoque | Triste/Negativo | Status `409 Conflict` (Estoque insuficiente) |
+| **CT-EXT-01** | UI | Automação de Login e adição ao carrinho no *SauceDemo* | Desafio Extra | Badge do carrinho atualizado para 1 item |
+| **CT-EXT-02** | API | Envio de `POST /api/users` na API pública *Reqres.in* | Desafio Extra | Status `201 Created` com validação do Schema |
 
 ---
 
-## 📊 Relatórios de Testes
+## 🚀 6. Instalação e Configuração do Ambiente
 
-Após a execução da suíte, o Playwright gera automaticamente um relatório em HTML detalhando os resultados, capturas de tela em caso de falha (`screenshots`) e rastros de execução (`traces`).
+### Pré-requisitos
+* **Node.js** v18.0.0 ou superior instalada.
+* **Git** instalado na máquina local.
 
-Para visualizar o relatório no navegador, execute:
+### Passos para Clonar e Instalar:
+
 ```bash
+# 1. Clonar este repositório
+git clone https://github.com/seu-usuario/lojaqa-automacao-banca.git
+
+# 2. Acessar a pasta do projeto
+cd lojaqa-automacao-banca
+
+# 3. Instalar as dependências do Node.js
+npm install
+
+# 4. Instalar os navegadores executáveis do Playwright
+npx playwright install
+```
+
+---
+
+## 💻 7. Comandos de Execução (Banca ao Vivo)
+
+Conforme a **Regra de Ouro** e o Roteiro da Banca, utilize os comandos abaixo durante a apresentação:
+
+### 📺 7.1. Execução E2E em Tela Aberta (`--headed`)
+Executa os testes de interface gráfica abrindo o navegador visivelmente:
+
+```bash
+# Executar suíte E2E do Módulo 07 da LojaQA em modo --headed
+npx playwright test tests/e2e/lojaqa-modulo-07.spec.ts --headed
+
+# Executar Desafio Extra E2E em site externo (SauceDemo)
+npx playwright test tests/e2e/externo-e2e.spec.ts --headed
+```
+
+### 💻 7.2. Execução de API REST no Terminal (com Logs no Console)
+Executa as requisições de API direto no terminal com asserções detalhadas no console:
+
+```bash
+# Executar suíte de API do Módulo 07 da LojaQA
+npx playwright test tests/api/lojaqa-api-07.spec.ts
+
+# Executar Desafio Extra de API Externa (Reqres.in)
+npx playwright test tests/api/externo-api.spec.ts
+```
+
+### 📊 7.3. Execução Geral e Relatório HTML
+```bash
+# Rodar todos os testes do repositório
+npx playwright test
+
+# Visualizar o relatório gerado após a execução
 npx playwright show-report
 ```
 
 ---
 
-## 🛡️ Boas Práticas Adotadas
+## 👥 8. Equipe de Desenvolvimento
 
-- **Tipagem Estrita:** Configurado com TypeScript sob diretrizes de Módulos ECMAScript (`nodenext` / `verbatimModuleSyntax`).
-- **Resiliência:** Tratamento inteligente de estados de botões (`isEnabled`) e diálogos nativos (`window.alert`).
-- **Manutenibilidade:** Separação clara de responsabilidades entre seletores, massa de dados e asserções.
-
----
-*Projeto desenvolvido por **Fabiano** para fins de avaliação prática em Engenharia de Software e QA.*
+* **Integrantes da Dupla/Trio:**
+  * Aluno 1 — *Desenvolvimento E2E & Page Objects*
+  * Aluno 2 — *Desenvolvimento API, Fixtures & README*
+* **Curso:** Formação em Avaliação e Teste de Software — Turma FAP 2026
+* **Professor Responsável:** Alison Melo
