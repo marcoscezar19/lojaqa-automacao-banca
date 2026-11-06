@@ -2,7 +2,8 @@
 
 > **Programa FAP 2026 - Turma 4 | Formação em Avaliação e Teste de Software**  
 > **Disciplina:** Automação de Testes com Playwright  
-> **Orientador:** Prof. Alison Melo  
+> **Orientador:** Prof. Alison Melo 
+> **Alunos:** Fabiano Paiva, Marcos Cezar e Paulo Henrique. 
 > **Módulo Avaliado:** Módulo 07 — *Checkout: Pagamentos & Criação de Pedido*  
 > **Data de Apresentação:** 10/11/2026  
 
@@ -99,7 +100,7 @@ lojaqa-automacao-banca/
 
 ```bash
 # 1. Clonar este repositório
-git clone https://github.com/seu-usuario/lojaqa-automacao-banca.git
+git clone https://github.com/marcoscezar19/lojaqa-automacao-banca.git
 
 # 2. Acessar a pasta do projeto
 cd lojaqa-automacao-banca
