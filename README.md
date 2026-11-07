@@ -152,4 +152,4 @@ Os scripts com `--headed` forçam o navegador visível.
 ## Repositório e Apresentação
 
 - [Repositório da equipe](https://github.com/marcoscezar19/lojaqa-automacao-banca).
-- [Apresentação da equipe](https://github.com/marcoscezar19/lojaqa-automacao-banca/presentation/Apresentação.pptx).
+- [Apresentação da equipe]([https://github.com/marcoscezar19/lojaqa-automacao-banca/presentation/Apresentação.pptx](https://github.com/marcoscezar19/lojaqa-automacao-banca/blob/main/presentation/Apresenta%C3%A7%C3%A3o.pptx)).
