@@ -1,12 +1,14 @@
 ﻿# LojaQA — módulo 07: pagamentos e criação de pedido
 
 Programa FAP 2026, turma 4. Professor: Alison Melo.
-Equipe: Fabiano Paiva, Marcos Cezar e Paulo Henrique.
-Apresentação prevista no enunciado: **10/11/2026**.
+Equipe: Fabiano Paiva, Marcos Cézar e Paulo Henrique.
+Data da apresentação: **10/11/2026**.
 
-Suíte Playwright com TypeScript para o módulo **07**, mais um E2E externo
-(SauceDemo) e um teste de API externa (Reqres). O login é preparação da
-sessão pela fixture; não é o foco dos testes da LojaQA.
+Desenvolvemos uma suíte de testes automatizados com Playwright e TypeScript
+para o módulo **07 — Checkout: Pagamentos e Criação de Pedido** da LojaQA.
+Validamos pagamentos via PIX e cartão, criação de pedidos e controle de
+estoque. Também incluímos testes externos no SauceDemo e na API Reqres.
+O login faz parte da preparação da sessão pela fixture.
 
 ## Instalação
 
@@ -32,25 +34,29 @@ npm.cmd run test:api
 # 3. Um E2E externo e um teste de API externa
 npm.cmd run test:externos
 
-# Alternativa: os dez cenários em uma execução com navegador visível
+# Os dez cenários em uma execução com navegador visível
 npm.cmd run test:banca
 
 # Relatório HTML
 npm.cmd run report
 ```
 
-`npm.cmd test` executa a mesma seleção completa. Os exemplos do módulo 12
-ficam fora da suíte. A execução usa um worker, pois as compras compartilham
-o cliente de demonstração e conferem o primeiro pedido da lista. Isso não
-impede outro usuário do ambiente público de comprar com a mesma conta.
+`npm.cmd test` executa a mesma seleção completa. A execução usa um worker,
+pois as compras compartilham o cliente de demonstração e conferem o primeiro
+pedido da lista. Isso não impede outro usuário do ambiente público de comprar
+com a mesma conta.
 
-Não há `timeout`, `expect.timeout`, `actionTimeout` ou `navigationTimeout`
-personalizados. Os limites padrão do Playwright continuam ativos. Não há
-`waitForTimeout` nem pausas fixas. A sincronização depende de elementos,
-respostas HTTP e asserções. Localmente o navegador fica visível; no CI ele
-executa sem interface gráfica. Os scripts de banca forçam `--headed`.
+Utilizamos os limites padrão do Playwright e sincronizamos os testes por
+elementos, respostas HTTP e asserções, sem pausas fixas. Localmente o
+navegador fica visível; no CI, executa sem interface gráfica. Os scripts
+de apresentação usam `--headed`.
 
 ## Matriz de testes
+
+A suíte contém **10 cenários**: cinco de interface da LojaQA, três de API
+da LojaQA e dois externos. Em `tests/e2e/lojaqa-modulo-07.spec.ts`, quatro
+testes são registrados a partir das massas de checkout, e o teste de
+carrinho vazio é declarado separadamente.
 
 | ID | Tipo | Cenário | Resultado esperado |
 | --- | --- | --- | --- |
@@ -65,26 +71,41 @@ executa sem interface gráfica. Os scripts de banca forçam `--headed`.
 | EXT-01 | UI externa | SauceDemo | Login e um item no carrinho |
 | EXT-02 | API externa | Reqres | Status 201, Content-Type JSON e usuário retornado |
 
-**Falhas esperadas não são regras de negócio aprovadas.** Dois cenários
-usam `test.fail` para registrar defeitos reproduzidos. O Playwright pode
-contá-los no total aceito, mas a equipe deve explicar essa diferença.
-Veja as [evidências e limitações](docs/modulo-07-validacao.md).
+Identificamos dois cenários com defeitos reproduzidos: cartão vencido e
+pedidos concorrentes. Utilizamos `test.fail` para registrar essas falhas
+conhecidas. Embora o Playwright as inclua no total aceito, elas representam
+regras de negócio que ainda precisam de correção. As verificações continuam
+exigindo o comportamento correto; caso o cenário passe, o Playwright
+sinaliza um sucesso inesperado para revisão da marcação.
 
 ## Organização
 
 ```text
-data/                   Endereço, pagamentos e credenciais de demonstração
-fixtures/auth.fixture.ts  Preparação da sessão autenticada
-pages/CheckoutPage.ts     Seletores e ações do checkout, sem expect
-pages/SauceDemoPage.ts    Seletores e ações do sistema externo
-tests/e2e/               Interface do módulo 07 e SauceDemo
-tests/api/               API do módulo 07 e Reqres
-docs/                    Conformidade, defeitos e evidências
-presentation/            Roteiro de seis slides; apresentação final pendente
-examples/modulo-12/      Exemplos antigos preservados, não validados
+data/
+  checkout.mass.ts         Massas tipadas de endereço e pagamentos
+  login.data.ts            Credenciais de demonstração da LojaQA
+fixtures/
+  auth.fixture.ts          Autenticação via API e preparação da sessão
+pages/
+  CheckoutPage.ts          Seletores e ações do checkout
+  SauceDemoPage.ts         Seletores e ações do SauceDemo
+tests/
+  e2e/
+    lojaqa-modulo-07.spec.ts  Cinco cenários de checkout
+    externo-e2e.spec.ts      Login e carrinho no SauceDemo
+  api/
+    lojaqa-api-07.spec.ts    Três cenários de pedidos e estoque
+    externo-api.spec.ts      Criação de usuário no Reqres
+playwright.config.ts      Navegador, execução e relatórios
+tsconfig.json             Configuração de tipos do TypeScript
+package.json              Dependências e scripts
+package-lock.json         Versões das dependências para npm ci
 ```
 
-Os cenários E2E são gerados pelas massas tipadas em `data/checkout.mass.ts`.
+Os cenários de pagamento utilizam as massas tipadas de
+`data/checkout.mass.ts`, com dados de PIX, cartão válido, validade incompleta
+e cartão vencido. A fixture autentica o cliente pela API e prepara o
+`localStorage` do navegador antes de entregar a página ao teste.
 Cada cenário de API cria um produto exclusivo e o desativa no teardown,
 mesmo se uma asserção falhar. Os pedidos reais continuam no histórico do
 ambiente de demonstração. Page Objects contêm ações e seletores; as
@@ -105,26 +126,30 @@ aplicação redireciona com `orderId=undefined`, o teste abre o primeiro pedido
 da lista e compara seu ID com a API antes de validar o modal.
 
 O desconto PIX é validado no resumo da UI, não no total persistido da API.
-A baixa simples de estoque passa; a garantia de atomicidade sob concorrência
-falha. Não há código da aplicação/servidor neste repositório para corrigir
-esses defeitos.
+O teste de baixa simples verifica a redução de 10 para 8 unidades. O de
+concorrência exige um pedido aceito (201), outro rejeitado (409) e estoque
+final quatro, com marcação de falha conhecida para o defeito de estoque
+negativo. O código da aplicação e do servidor não faz parte deste repositório.
 
-## Evidências da execução
+## Relatórios e evidências
 
-O relatório HTML inclui capturas do resumo PIX e do modal do pedido, além
-de screenshots, vídeo e trace nas falhas. Prints da revisão:
+O Playwright apresenta os resultados no terminal e gera o relatório HTML
+em `playwright-report/`. Para abri-lo após uma execução:
 
-![Resumo PIX com desconto](docs/evidencias/checkout-pix.png)
+```powershell
+npm.cmd run report
+```
 
-![Detalhes do pedido real criado](docs/evidencias/pedido-confirmado.png)
+Os testes anexam capturas do resumo PIX e dos detalhes dos pedidos criados.
+A configuração também preserva screenshots, vídeos e traces nas falhas.
+Os artefatos de execução ficam em `test-results/`.
 
-## Entrega da atividade
+Executamos os testes com Chromium, viewport de 1280 × 720 e um worker.
+Quando `CI` está definido, a configuração utiliza navegador sem interface,
+até duas novas tentativas por teste com falha e bloqueia `test.only`.
+Os scripts com `--headed` forçam o navegador visível.
+
+## Repositório e Apresentação
 
 - [Repositório da equipe](https://github.com/marcoscezar19/lojaqa-automacao-banca).
-- [Conferência do PDF por requisito](docs/conformidade-atividade.md).
-- [Roteiro de seis slides](presentation/roteiro-slides.md).
-- **Pendente:** montar/exportar os slides finais (PDF ou link), ensaiar a
-  participação dos três integrantes e enviar repositório + slides no Moodle.
-
-O roteiro não substitui a apresentação final. As alterações locais precisam
-ser publicadas pela equipe antes da entrega.
+- [Apresentação da equipe](https://github.com/marcoscezar19/lojaqa-automacao-banca/presentation/Apresentação.pptx).
