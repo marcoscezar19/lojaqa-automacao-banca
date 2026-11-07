@@ -1,51 +1,34 @@
-/* import { test, expect } from '@playwright/test';
-
-test.describe('Desafio Extra - API REST Externa (ViaCEP)', () => {
-  
-  test('GET /ws/50030230/json/ deve retornar dados de endereço válidos', async ({ request }) => {
-    const response = await request.get('https://viacep.com.br/ws/50030230/json/');
-
-    console.log(`Status Code API Externa: ${response.status()}`);
-    expect(response.status()).toBe(200);
-
-    const body = await response.json();
-    console.log('Resposta da API ViaCEP:', body);
-
-    expect(body).toHaveProperty('cep');
-    expect(body.localidade).toBe('Recife');
-  });
-}); */
-
-
+// A fixture request faz chamadas HTTP reais sem precisar abrir uma página.
 import { test, expect } from '@playwright/test';
 
-test.describe('Desafio Extra de Portfólio: API REST Externa', () => {
-  const externalApiUrl = 'https://reqres.in/api';
+// Tipagem dos campos usados no teste; as asserções abaixo verificam os dados recebidos em execução.
+interface UsuarioCriado {
+  name: string;
+  job: string;
+  id: string;
+  createdAt: string;
+}
 
-  test('Validar criação de usuário (POST) com asserção de Status 201 e JSON Payload', async ({ request }) => {
-    const newUserPayload = {
-      name: 'Fabiano Joe',
-      job: 'Engenheiro de QA Sênior',
-    };
+// Caso de API de mercado exigido pela atividade: serviço Reqres, independente da LojaQA.
+test('Externo: Reqres cria usuário com status 201 e JSON válido', async ({ request }) => {
+  // ARRANGE: monta o corpo JSON com dados de demonstração.
+  const payload = { name: 'Equipe LojaQA', job: 'QA' };
 
-    console.log('⚡ [API Externa] Enviando requisição POST para Reqres:', newUserPayload);
+  // ACT: envia POST para criação de usuário; data é serializado como JSON pelo Playwright.
+  const response = await request.post('https://reqres.in/api/users', { data: payload });
+  // Obtém o header para demonstrar e validar o formato declarado pela resposta.
+  const contentType = response.headers()['content-type'];
+  console.log('[API externa]', { status: response.status(), contentType });
 
-    const response = await request.post(`${externalApiUrl}/users`, {
-      data: newUserPayload,
-    });
-
-    // Asserção de Status Code
-    const status = response.status();
-    console.log(`📊 [API Externa] Status Code Retornado: ${status}`);
-    expect(status).toBe(201);
-
-    // Asserção do Payload de Retorno
-    const responseBody = await response.json();
-    console.log('📦 [API Externa] JSON Response Recebido:', JSON.stringify(responseBody, null, 2));
-
-    expect(responseBody.name).toBe(newUserPayload.name);
-    expect(responseBody.job).toBe(newUserPayload.job);
-    expect(responseBody.id).toBeDefined();
-    expect(responseBody.createdAt).toBeDefined();
-  });
+  // ASSERT: 201 indica criação; Content-Type deve declarar JSON antes de o conteúdo ser validado.
+  expect(response.status()).toBe(201);
+  expect(contentType).toContain('application/json');
+  // Lê a resposta JSON e imprime o corpo para acompanhar o resultado no terminal.
+  const body: UsuarioCriado = await response.json();
+  console.log('[API externa] JSON:', JSON.stringify(body, null, 2));
+  // Confere os dados enviados e depois exige um ID textual não vazio e uma data válida.
+  expect(body).toMatchObject(payload);
+  expect(body.id).toEqual(expect.any(String));
+  expect(body.id).not.toBe('');
+  expect(Number.isFinite(Date.parse(body.createdAt))).toBe(true);
 });

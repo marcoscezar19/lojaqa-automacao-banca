@@ -1,55 +1,44 @@
+// defineConfig tipa a configuração; devices fornece perfis de navegador e dispositivo.
 import { defineConfig, devices } from '@playwright/test';
 
-/**
- * @file playwright.config.ts
- * @description Configuração oficial do Playwright para o Projeto da Banca (Módulo 07 - FAP 2026).
- */
+// Configuração compartilhada pela suíte. Não há timeouts personalizados: continuam valendo os padrões do Playwright.
 export default defineConfig({
-  // Tempo limite por teste: 45 segundos (protege contra eventuais cold starts no servidor da Render)
-  timeout: 45 * 1000,
-
-  // Tempo limite para asserções do expect
-  expect: {
-    timeout: 10 * 1000,
-  },
-
-  // Diretório onde estão localizadas as suítes de teste
+  // Somente os cenários em tests são descobertos; exemplos preservados em examples ficam fora da execução.
   testDir: './tests',
 
-  // Execução paralela de testes
-  fullyParallel: true,
+  // Desativa o paralelismo entre testes do mesmo arquivo, pois as compras usam uma conta de demonstração compartilhada.
+  fullyParallel: false,
 
-  // Evita commits acidentais com test.only em ambientes de CI
+  // No CI, impede publicar acidentalmente test.only e executar apenas parte da suíte.
   forbidOnly: !!process.env.CI,
 
-  // Tentativas de reexecução (retries)
+  // No CI, repete falhas até duas vezes; localmente não repete para facilitar a leitura da demonstração.
   retries: process.env.CI ? 2 : 0,
 
-  // Número de workers (paralelismo)
-  workers: process.env.CI ? 1 : undefined,
+  // Um único worker também impede que arquivos diferentes disputem a primeira posição na lista de pedidos.
+  workers: 1,
 
-  // Gerador de relatórios visuais HTML
-  reporter: 'html',
+  // list mostra resultados no terminal; html guarda evidências sem abrir o relatório automaticamente.
+  reporter: [['list'], ['html', { open: 'never' }]],
 
-  // Bloco 'use' ÚNICO contendo todas as configurações globais de execução
+  // Opções compartilhadas de execução; dentro do projeto, use também aplica o perfil específico do navegador.
   use: {
-    // Exibe a execução em tela (--headed) exigido na banca
-    headless: false,
+    // Localmente o navegador aparece; no CI roda sem interface. O comando da banca força --headed.
+    headless: !!process.env.CI,
     
-    // Captura evidências visuais em caso de falha
+    // Preserva captura de tela nas falhas, inclusive nas falhas esperadas documentadas.
     screenshot: 'only-on-failure',
+    // Mantém o vídeo dos cenários com falha para ajudar a explicar ou investigar o comportamento.
     video: 'retain-on-failure',
-    trace: 'on-first-retry',
-
-    // Desabilita a lentidão proposital da aceleração gráfica se necessário
-    actionTimeout: 15 * 1000,
-    navigationTimeout: 30 * 1000,
+    // O trace registra ações e rede para inspeção posterior, sem acrescentar pausas fixas ao teste.
+    trace: 'retain-on-failure',
   },
 
-  // Configuração dos navegadores focados na execução da banca
+  // A banca usa apenas Chromium; Desktop Chrome fornece o perfil e viewport fixa o tamanho da janela.
   projects: [
     {
       name: 'chromium',
+      // Opções compartilhadas de execução; dentro do projeto, use também aplica o perfil específico do navegador.
       use: { 
         ...devices['Desktop Chrome'],
         viewport: { width: 1280, height: 720 },

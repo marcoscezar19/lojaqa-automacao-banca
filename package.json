@@ -3,13 +3,22 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test",
+    "test:e2e": "playwright test tests/e2e/lojaqa-modulo-07.spec.ts --headed",
+    "test:api": "playwright test tests/api/lojaqa-api-07.spec.ts",
+    "test:externos": "playwright test tests/e2e/externo-e2e.spec.ts tests/api/externo-api.spec.ts --headed",
+    "test:banca": "playwright test --project=chromium --headed",
+    "report": "playwright show-report"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
     "@playwright/test": "^1.65.0",
-    "@types/node": "^26.6.6"
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
   }
 }

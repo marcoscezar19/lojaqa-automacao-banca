@@ -1,86 +1,43 @@
-/* import { test as base } from '@playwright/test';
+// Renomeia o test original para base, permitindo estendê-lo com uma preparação reutilizável.
+import { test as base, expect, Page } from '@playwright/test';
+import { clienteLogin } from '../data/login.data';
 
-// Caso sua suíte precise de um contexto autenticado pré-definido pela banca
-export const test = base.extend({
-  // Exemplo de fixture personalizada de sessão, se necessário
-  authenticatedPage: async ({ page }, use) => {
-    // Aqui entrariam passos de login prévios se o seu módulo exigisse sessão autenticada
-    await page.goto('/');
-    await use(page);
-  },
-});
+// Endereço comum da aplicação; os testes o reutilizam para navegação e comparação de URLs.
+export const LOJA_URL = 'https://alisonmelo.github.io/tioalison-pe-t4-fap26/projetos-base/01-sistema-login';
 
-export { expect } from '@playwright/test'; */
-/* 
-import { test as base, expect } from '@playwright/test';
+// Declara ao TypeScript que a fixture fornece uma Page chamada authenticatedPage.
+type AuthFixtures = { authenticatedPage: Page };
 
-type AuthFixtures = {
-  authenticatedPage: import('@playwright/test').Page;
-};
-
+// Os testes que importam este test podem pedir authenticatedPage e recebem a sessão preparada automaticamente.
 export const test = base.extend<AuthFixtures>({
+  // page é a aba isolada do teste; request faz HTTP sem interface; use entrega a página pronta ao cenário.
   authenticatedPage: async ({ page, request }, use) => {
-    // ARRANGE: Realiza requisição de login para obter o Token JWT do cliente
-    const loginResponse = await request.post('https://api-qa-fap2026.onrender.com/api/login', {
-      data: {
-        email: 'user@system.com',
-        password: 'UserPassword123',
-      },
+    // Autentica pela API para concentrar a demonstração em checkout, e não em testar o formulário de login.
+    const response = await request.post('https://api-qa-fap2026.onrender.com/api/login', {
+      data: { email: clienteLogin.email, password: clienteLogin.senha },
     });
+    // Estas verificações são pré-condições: se o login falhar, o teste para antes de tentar comprar.
+    expect(response.status(), 'Login do cliente via API').toBe(200);
+    const session = await response.json();
+    expect(session.token).toBeTruthy();
+    expect(session.user.email).toBe(clienteLogin.email);
 
-    expect(loginResponse.status()).toBe(200);
-    const loginBody = await loginResponse.json();
-    const token = loginBody.token;
-
-    // Injeta o token no localStorage antes de navegar para o painel de compras
-    await page.goto('https://alisonmelo.github.io/tioalison-pe-t4-fap26/projetos-base/01-sistema-login/login.html');
-    await page.evaluate((jwtToken) => {
-      localStorage.setItem('token', jwtToken);
-    }, token);
-
-    // Navega para o painel logado
-    await page.goto('https://alisonmelo.github.io/tioalison-pe-t4-fap26/projetos-base/01-sistema-login/painel.html');
-
+    // Abre o domínio correto, pois cada origem possui seu próprio localStorage.
+    await page.goto(`${LOJA_URL}/login.html`);
+    // evaluate roda dentro do navegador; grava os mesmos dados de sessão que a aplicação usa após autenticar.
+    await page.evaluate(({ token, user }) => {
+      localStorage.setItem('token', token);
+      // O usuário precisa ser convertido em JSON porque o localStorage guarda valores como texto.
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      localStorage.setItem('isAuthenticated', 'true');
+      // Cada cenário começa sem itens anteriores; o teste positivo adicionará seu próprio produto pela interface.
+      localStorage.removeItem('lojaqa_cart');
+    }, session);
+    await page.goto(`${LOJA_URL}/loja.html`);
+    // Entrega a página ao teste e aguarda sua conclusão; o Playwright encerra o contexto isolado ao terminar.
     await use(page);
   },
 });
 
-export { expect };
- */
-
-import { test as base, expect } from '@playwright/test';
-
-type AuthFixtures = {
-  authenticatedPage: import('@playwright/test').Page;
-};
-
-export const test = base.extend<AuthFixtures>({
-  authenticatedPage: async ({ page, request }, use) => {
-    // 1. Faz o login via API para obter o token JWT rapidamente
-    const loginResponse = await request.post('https://api-qa-fap2026.onrender.com/api/login', {
-      data: {
-        email: 'user@system.com',
-        password: 'UserPassword123',
-      },
-    });
-
-    expect(loginResponse.status()).toBe(200);
-    const loginBody = await loginResponse.json();
-    const token = loginBody.token;
-
-    // 2. Abre a página de login da Loja QA para inicializar o localStorage do domínio
-    await page.goto('https://alisonmelo.github.io/tioalison-pe-t4-fap26/projetos-base/01-sistema-login/login.html');
-    
-    // 3. Injeta o token JWT no navegador
-    await page.evaluate((jwtToken) => {
-      localStorage.setItem('token', jwtToken);
-    }, token);
-
-    // 4. Redireciona para o painel ou módulo de checkout do aluno
-    await page.goto('https://alisonmelo.github.io/tioalison-pe-t4-fap26/projetos-base/01-sistema-login/painel.html');
-
-    await use(page);
-  },
-});
-
+// Reexporta expect para os cenários importarem teste e asserções do mesmo arquivo.
 export { expect };

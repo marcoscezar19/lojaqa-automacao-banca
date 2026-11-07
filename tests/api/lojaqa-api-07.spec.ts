@@ -1,122 +1,142 @@
-import { test, expect } from '@playwright/test';
+// APIRequestContext faz HTTP sem navegador; APIResponse permite consultar status, headers e JSON.
+import { test as base, expect, APIRequestContext, APIResponse } from '@playwright/test';
+import { clienteLogin } from '../../data/login.data';
 
-const APIUrl = 'https://api-qa-fap2026.onrender.com/api';
+// Centraliza a raiz da API; as funções abaixo acrescentam o caminho de cada recurso.
+const API_URL = 'https://api-qa-fap2026.onrender.com/api';
+// Tipos locais descrevem os dados necessários: identificação/estoque do produto e tokens usados no cenário.
+interface Produto { _id: string; stock: number }
+interface MassaPedido { produtoId: string; clienteToken: string; lojistaToken: string }
 
-test.describe('Módulo 07: Testes de API REST - Checkout e Criação de Pedidos (Padrão AAR)', () => {
-  let authToken: string;
-  let testProductId: string;
-  const uniqueProductName = `Produto Teste Checkout ${Date.now()}`;
+// Autenticação de preparação: devolve um token após verificar status 200 e o tipo do valor recebido.
+async function login(request: APIRequestContext, email: string, password: string): Promise<string> {
+  const response = await request.post(`${API_URL}/login`, { data: { email, password } });
+  expect(response.status(), 'Autenticação via API').toBe(200);
+  const body = await response.json();
+  expect(body.token).toEqual(expect.any(String));
+  return body.token;
+}
 
-  // ARRANGE (SETUP): Autentica o lojista e cria um produto de massa com estoque controlado
-  test.beforeAll(async ({ request }) => {
-    // 1. Login como Lojista para cadastrar massa de produto
-    const loginRes = await request.post(`${APIUrl}/login`, {
+// Consulta o catálogo real e procura o produto exclusivo do cenário, para medir estoque antes e depois.
+async function estoque(request: APIRequestContext, produtoId: string): Promise<number> {
+  const response = await request.get(`${API_URL}/products`);
+  expect(response.status()).toBe(200);
+  const produtos: Produto[] = await response.json();
+  const produto = produtos.find(item => item._id === produtoId);
+  expect(produto, 'Produto de teste presente no catálogo').toBeDefined();
+  // O expect anterior verifica a existência; ! registra essa garantia para o TypeScript.
+  return produto!.stock;
+}
+
+// Valida o header JSON e mostra status, Content-Type e corpo formatado no console para a explicação da banca.
+async function registrarResposta(response: APIResponse) {
+  expect(response.headers()['content-type']).toContain('application/json');
+  const body = await response.json();
+  console.log('[API]', JSON.stringify({ status: response.status(), contentType: response.headers()['content-type'], body }, null, 2));
+  return body;
+}
+
+// Fixture própria da API: cada cenário recebe um produto novo, evitando que um teste consuma a massa do outro.
+const test = base.extend<{ massaPedido: MassaPedido }>({
+  // A preparação cria a massa; use executa o teste; finally garante a tentativa de limpeza depois dele.
+  massaPedido: async ({ request }, use, testInfo) => {
+    // O lojista pode cadastrar/desativar produtos; o cliente possui o papel necessário para comprar.
+    const lojistaToken = await login(request, 'lojista@system.com', 'SellerPass123');
+    const clienteToken = await login(request, clienteLogin.email, clienteLogin.senha);
+    // Cria um produto real com dez unidades e preço 150; nome inclui ID do teste e horário para evitar colisões.
+    const response = await request.post(`${API_URL}/seller/products`, {
+      headers: { Authorization: `Bearer ${lojistaToken}` },
       data: {
-        email: 'lojista@system.com',
-        password: 'SellerPass123',
+        name: `QA Checkout ${testInfo.testId} ${Date.now()}`,
+        description: 'Produto isolado para validação de estoque',
+        category: 'Periféricos', price: 150, stock: 10,
+        image: 'https://example.com/produto-qa.png',
       },
     });
-    expect(loginRes.status()).toBe(200);
-    const loginBody = await loginRes.json();
-    authToken = loginBody.token;
-
-    // 2. Criação do Produto de Teste
-    const productRes = await request.post(`${APIUrl}/seller/products`, {
-      headers: { Authorization: `Bearer ${authToken}` },
-      data: {
-        name: uniqueProductName,
-        description: 'Produto exclusivo para teste de pedido via API',
-        category: 'Periféricos',
-        price: 150.0,
-        stock: 10,
-        image: 'https://via.placeholder.com/150',
-      },
-    });
-    expect(productRes.status()).toBe(201);
-    const productBody = await productRes.json();
-    testProductId = productBody.product._id;
-  });
-
-  test('Cenário Feliz (API): Criar pedido com sucesso (Status 201) e validar baixa atômica de estoque', async ({ request }) => {
-    // ARRANGE: Login como Cliente Comum para realizar a compra
-    const customerLoginRes = await request.post(`${APIUrl}/login`, {
-      data: { email: 'user@system.com', password: 'UserPassword123' },
-    });
-    expect(customerLoginRes.status()).toBe(200);
-    const customerToken = (await customerLoginRes.json()).token;
-
-    // ACT: Envio da requisição POST /orders
-    const orderPayload = {
-      items: [
-        {
-          productId: testProductId,
-          quantity: 2,
-        },
-      ],
-      shippingAddress: 'Av. Engenheiro Domingos Ferreira, 2000 - Recife/PE',
-    };
-
-    console.log('⚡ [API] Enviando payload de pedido:', JSON.stringify(orderPayload, null, 2));
-
-    const orderRes = await request.post(`${APIUrl}/orders`, {
-      headers: { Authorization: `Bearer ${customerToken}` },
-      data: orderPayload,
-    });
-
-    // ASSERT: Validação de Status Code e Schema do Response
-    const status = orderRes.status();
-    console.log(`📊 [API] Status Code Retornado: ${status}`);
-    expect(status).toBe(201);
-
-    const responseBody = await orderRes.json();
-    console.log('📦 [API] JSON Response de Pedido Criado:', JSON.stringify(responseBody, null, 2));
-
-    expect(responseBody.message).toBe('Pedido criado com sucesso.');
-    expect(responseBody.order).toBeDefined();
-    expect(responseBody.order.total).toBe(300.0); // 2 * 150.0
-    expect(responseBody.order.status).toBe('pending');
-  });
-
-  test('Cenário Triste (API): Falha ao criar pedido com estoque insuficiente (Status 409 Conflict)', async ({ request }) => {
-    // ARRANGE: Login como cliente
-    const customerLoginRes = await request.post(`${APIUrl}/login`, {
-      data: { email: 'user@system.com', password: 'UserPassword123' },
-    });
-    const customerToken = (await customerLoginRes.json()).token;
-
-    // ACT: Tenta comprar uma quantidade absurda superior ao estoque cadastrado (ex: 999 unidades)
-    const invalidOrderPayload = {
-      items: [
-        {
-          productId: testProductId,
-          quantity: 999,
-        },
-      ],
-      shippingAddress: 'Rua do Sol, 100 - Recife/PE',
-    };
-
-    const errorRes = await request.post(`${APIUrl}/orders`, {
-      headers: { Authorization: `Bearer ${customerToken}` },
-      data: invalidOrderPayload,
-    });
-
-    // ASSERT: Validação do Erro 409
-    console.log(`📊 [API Cenário Triste] Status Code Retornado: ${errorRes.status()}`);
-    expect(errorRes.status()).toBe(409);
-
-    const errorBody = await errorRes.json();
-    console.log('⚠️ [API Cenário Triste] Mensagem de Erro Capturada:', errorBody);
-    expect(errorBody.error).toContain('Estoque insuficiente');
-  });
-
-  // TEARDOWN (RELEASE): Garante a limpeza lógica/física do produto criado no setup
-  test.afterAll(async ({ request }) => {
-    if (testProductId && authToken) {
-      console.log(`🧹 [Teardown API] Removendo ou desativando produto de massa ID: ${testProductId}`);
-      await request.put(`${APIUrl}/seller/products/${testProductId}`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-        data: { active: false },
+    expect(response.status(), 'Criação da massa de produto').toBe(201);
+    const { product } = await response.json();
+    expect(product._id).toEqual(expect.any(String));
+    try {
+      // Disponibiliza ID e tokens ao teste e aguarda sua conclusão antes do teardown.
+      await use({ produtoId: product._id, clienteToken, lojistaToken });
+    // TEARDOWN: desativa o produto mesmo se uma asserção falhar. Os pedidos reais continuam no histórico.
+    } finally {
+      const cleanup = await request.put(`${API_URL}/seller/products/${product._id}`, {
+        headers: { Authorization: `Bearer ${lojistaToken}` }, data: { active: false },
       });
+      expect(cleanup.status(), 'Desativação do produto de teste').toBe(200);
     }
+  },
+});
+
+// Envia um POST autenticado com produto, quantidade e endereço; não altera o resultado recebido do servidor.
+function criarPedido(request: APIRequestContext, massa: MassaPedido, quantidade: number) {
+  return request.post(`${API_URL}/orders`, {
+    // Bearer apresenta o token do cliente no cabeçalho, como exige o recurso protegido.
+    headers: { Authorization: `Bearer ${massa.clienteToken}` },
+    data: {
+      items: [{ productId: massa.produtoId, quantity: quantidade }],
+      shippingAddress: 'Rua do Sol, 100 - Recife/PE',
+    },
+  });
+}
+
+// Agrupa os três cenários de API: compra válida, estoque insuficiente e concorrência.
+test.describe('Módulo 07: Pedidos e estoque via API', () => {
+  // Cenário positivo: preparar estoque, comprar duas unidades e verificar resposta e quantidade restante.
+  test('Criar pedido com status 201, JSON válido e baixa de estoque', async ({ request, massaPedido }) => {
+    // ARRANGE: registra a quantidade real antes da ação, em vez de presumir que o catálogo não mudou.
+    const antes = await estoque(request, massaPedido.produtoId);
+    // ACT: faz a compra com a quantidade definida pelo cenário.
+    const response = await criarPedido(request, massaPedido, 2);
+    // ASSERT: exige criação do recurso e, nas linhas seguintes, estrutura e valores do pedido.
+    expect(response.status()).toBe(201);
+    const body = await registrarResposta(response);
+    expect(body.message).toBe('Pedido criado com sucesso.');
+    expect(body.order).toMatchObject({ _id: expect.any(String), total: 300, status: 'pending' });
+    // Compara o item retornado com o produto exclusivo, a quantidade dois e o preço unitário 150.
+    expect(body.order.items).toEqual([
+      expect.objectContaining({ productId: massaPedido.produtoId, quantity: 2, unitPrice: 150 }),
+    ]);
+    // Uma data só passa se Date.parse conseguir convertê-la em um instante válido.
+    expect(Number.isFinite(Date.parse(body.order.createdAt)), 'Data de criação válida').toBe(true);
+    // Consulta novamente o servidor. A comparação final prova a baixa simples, mas sozinha não prova atomicidade.
+    const depois = await estoque(request, massaPedido.produtoId);
+    console.log('[Estoque]', { antes, quantidadeComprada: 2, depois });
+    expect(depois).toBe(antes - 2);
+  });
+
+  // Cenário negativo: pede uma unidade acima do disponível; exige 409 e nenhuma mudança no estoque.
+  test('Estoque insuficiente retorna 409 e preserva a quantidade disponível', async ({ request, massaPedido }) => {
+    // ARRANGE: registra a quantidade real antes da ação, em vez de presumir que o catálogo não mudou.
+    const antes = await estoque(request, massaPedido.produtoId);
+    // ACT: faz a compra com a quantidade definida pelo cenário.
+    const response = await criarPedido(request, massaPedido, antes + 1);
+    expect(response.status()).toBe(409);
+    const body = await registrarResposta(response);
+    expect(body.error).toContain('Estoque insuficiente');
+    expect(await estoque(request, massaPedido.produtoId)).toBe(antes);
+  });
+
+  // Disputa controlada: duas compras de seis unidades usam o mesmo produto com estoque dez.
+  test('Pedidos concorrentes não vendem além do estoque', async ({ request, massaPedido }) => {
+    expect(await estoque(request, massaPedido.produtoId)).toBe(10);
+    // Promise.all dispara os dois pedidos sem esperar o primeiro terminar; é a concorrência dentro deste teste.
+    const respostas = await Promise.all([
+      criarPedido(request, massaPedido, 6), criarPedido(request, massaPedido, 6),
+    ]);
+    for (const response of respostas) await registrarResposta(response);
+    // Consulta novamente o servidor. A comparação final prova a baixa simples, mas sozinha não prova atomicidade.
+    const depois = await estoque(request, massaPedido.produtoId);
+    console.log('[Concorrência]', { estoqueInicial: 10, quantidades: [6, 6], estoqueFinal: depois });
+    // Antes de aceitar a falha conhecida, descarta erros internos: as duas respostas devem ser 201 ou 409.
+    for (const response of respostas) expect([201, 409], 'Respostas de negócio, sem erro interno do servidor').toContain(response.status());
+    console.log('[DEFEITO CONHECIDO] A API permite estoque negativo em pedidos simultâneos.');
+    // Documenta o bug reproduzido: os dois pedidos são aceitos e o estoque fica -2. A falha esperada não comprova a regra funcionando.
+    test.fail(true, 'Defeito observado na API: dois pedidos de 6 unidades são aceitos para estoque 10.');
+    // soft registra a divergência e continua até conferir o estoque. O correto seria uma compra 201 e outra rejeitada com 409.
+    expect.soft(respostas.map(response => response.status()).sort()).toEqual([201, 409]);
+    // Somente seis unidades deveriam sair: dez menos seis resulta em quatro.
+    expect.soft(depois).toBe(4);
   });
 });

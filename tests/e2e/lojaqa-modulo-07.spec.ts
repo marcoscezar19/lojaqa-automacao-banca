@@ -1,176 +1,110 @@
-/* import { test, expect } from '../../fixtures/auth.fixture';
+// Importa o test estendido pela fixture: authenticatedPage já chega com a sessão do cliente preparada.
+import { test, expect, LOJA_URL } from '../../fixtures/auth.fixture';
 import { CheckoutPage } from '../../pages/CheckoutPage';
 import { massasCheckout } from '../../data/checkout.mass';
 
-test.describe('Módulo 07: Checkout, Pagamentos & Confirmação de Pedido (E2E)', () => {
-  let checkoutPage: CheckoutPage;
+// Remove símbolo e separadores do texto monetário. Ex.: R$ 289,90 vira 28990; GRÁTIS vira zero.
+const valorEmCentavos = (texto: string) => Number(texto.replace(/\D/g, ''));
 
-  test.beforeEach(async ({ authenticatedPage }) => {
-    checkoutPage = new CheckoutPage(authenticatedPage);
-  });
-
-  // DATA-DRIVEN LOOP PARA OS CENÁRIOS POSITIVOS E NEGATIVOS
+// Agrupa os cenários do módulo no relatório. Aqui ficam as asserções; o Page Object contém apenas ações e seletores.
+test.describe('Módulo 07: Checkout, pagamentos e confirmação de pedido', () => {
+  // Cada massa registra um teste separado: PIX, cartão válido, validade incompleta e cartão vencido.
   for (const massa of massasCheckout) {
-    test(`Data-Driven E2E: ${massa.perfilCenario}`, async ({ authenticatedPage }) => {
-      // 1. Arrange: Garante que há itens no carrinho e vai para o checkout
-      await authenticatedPage.goto('https://alisonmelo.github.io/tioalison-pe-t4-fap26/projetos-base/01-sistema-login/painel.html');
-      
-      // Simula adição de produto prévio ao carrinho se necessário
-      await checkoutPage.preencherEndereco(massa.endereco);
+    // O nome vem da massa. authenticatedPage é renomeada para page; testInfo permite guardar evidências do cenário.
+    test(massa.perfilCenario, async ({ authenticatedPage: page }, testInfo) => {
+      // ARRANGE: conecta o Page Object à página autenticada para preparar uma compra real pela interface.
+      const checkout = new CheckoutPage(page);
+      // Bloqueia somente a consulta externa de CEP: endereço é pré-condição, e ViaCEP pertence ao módulo 05.
+      await page.route('https://viacep.com.br/**', route => route.abort());
+      await checkout.abrirComProduto();
+      await expect(page).toHaveURL(/checkout\.html$/);
+      // Preenche os campos obrigatórios antes de exercitar a regra de pagamento.
+      await checkout.preencherEndereco(massa.endereco);
 
-      // 2. Act: Preenche pagamento conforme a massa de dados
+      // ACT e ASSERT do PIX: seleciona o método e confere o desconto exibido antes de concluir a compra.
       if (massa.pagamento.metodo === 'PIX') {
-        await checkoutPage.selecionarPagamentoPix();
-      } else if (massa.pagamento.metodo === 'Cartao') {
-        await checkoutPage.preencherCartao(
-          massa.pagamento.bandeira!,
-          massa.pagamento.numeroCartao!,
-          massa.pagamento.validade!,
-          massa.pagamento.cvv!
-        );
+        await checkout.selecionarPagamentoPix();
+        await expect(checkout.desconto).toBeVisible();
+        // Lê os valores visíveis em centavos para calcular o resultado esperado independentemente da aplicação.
+        const subtotal = valorEmCentavos(await checkout.subtotal.innerText());
+        const frete = valorEmCentavos(await checkout.frete.innerText());
+        const desconto = valorEmCentavos(await checkout.desconto.innerText());
+        // Compara o desconto com 5% dos produtos. Math.round representa o arredondamento para centavos.
+        expect(desconto, 'Desconto de 5% sobre os produtos').toBe(Math.round(subtotal * 0.05));
+        // O total é arredondado após aplicar a porcentagem sem arredondamento intermediário, como no resumo atual da loja.
+        expect(valorEmCentavos(await checkout.total.innerText()), 'Total com frete e desconto PIX').toBe(Math.round(subtotal + frete - subtotal * 0.05));
+        // Cria um caminho exclusivo por teste e anexa o resumo PIX ao relatório HTML.
+        const evidencia = testInfo.outputPath('checkout-pix.png');
+        await page.screenshot({ path: evidencia, fullPage: true });
+        await testInfo.attach('Resumo PIX com desconto de 5%', { path: evidencia, contentType: 'image/png' });
+      } else {
+        // Na opção Cartao, a união de tipos garante a presença de número, titular, validade, CVV e bandeira.
+        const pagamento = massa.pagamento;
+        await checkout.preencherCartao(pagamento.numeroCartao, pagamento.titular, pagamento.validade, pagamento.cvv);
+        // Confere a bandeira calculada pela interface a partir do número, em vez de presumir que o preenchimento funcionou.
+        await expect(checkout.bandeiraDetectada).toHaveText(pagamento.bandeira);
       }
 
-      await checkoutPage.clicarFinalizar();
-
-      // 3. Assert: Valida resultado esperado (Positivo vs Triste)
+      // Divide a verificação final entre compra válida e validação negativa. Cada ramo exige um resultado diferente.
       if (massa.sucessoEsperado) {
-        await expect(checkoutPage.modalSucesso).toBeVisible({ timeout: 10000 });
+        // Guarda o identificador real para não confundir a compra deste cenário com um pedido antigo da conta.
+        let idPedido: string | undefined;
+        // Captura a resposta antes de a página redirecionar. route.fetch chama a API real e fulfill devolve sua resposta sem modificá-la.
+        await page.route('**/api/orders', async route => {
+          // Requisições que não criam pedidos seguem normalmente; a observação se limita ao POST.
+          if (route.request().method() !== 'POST') return route.continue();
+          const response = await route.fetch();
+          const corpo = await response.json();
+          // Aceita o pedido dentro de order ou diretamente no corpo; a resposta atual da API usa order.
+          idPedido = (corpo.order ?? corpo)._id;
+          await route.fulfill({ response });
+        });
+        // Registra a espera ANTES do clique para não perder uma resposta rápida. A Promise será aguardada após finalizar.
+        const pedido = page.waitForResponse(response => response.url().endsWith('/api/orders') && response.request().method() === 'POST');
+        await checkout.clicarFinalizar();
+        const resposta = await pedido;
+        // ASSERT: 201 significa recurso criado; também exige um ID e o meio de pagamento enviado no endereço do pedido.
+        expect(resposta.status(), 'Criação do pedido').toBe(201);
+        expect(idPedido, 'ID do pedido criado pela API').toBeTruthy();
+        expect(resposta.request().postDataJSON().shippingAddress).toContain(massa.pagamento.metodo === 'PIX' ? 'PIX' : 'Mastercard');
+        // A loja redireciona com orderId=undefined. A compra será validada pela lista, mantendo esse defeito documentado.
+        await expect(page).toHaveURL(/painel\.html\?.*#ordersSection$/);
+        // Antes de abrir o primeiro pedido, compara seu ID com a API. O ! informa ao compilador que a presença já foi verificada acima.
+        await expect(checkout.primeiroPedido.locator('.badge.id')).toHaveText(idPedido!);
+        // Abre o modal do pedido identificado; depois confere sua visibilidade, o ID e a existência de itens.
+        await checkout.abrirDetalhesDoPrimeiroPedido();
+        await expect(checkout.modalSucesso).toBeVisible();
+        await expect(page.locator('#modalOrderRawId')).toHaveText(idPedido!);
+        await expect(page.locator('#modalOrderItemsList')).not.toBeEmpty();
+        // evaluate consulta o armazenamento do navegador e confirma que a aplicação limpou o carrinho após a compra.
+        expect(await page.evaluate(() => localStorage.getItem('lojaqa_cart'))).toBeNull();
+        // Registra o modal real criado, permitindo mostrar a evidência da compra no relatório.
+        const evidencia = testInfo.outputPath('pedido-confirmado.png');
+        await checkout.modalSucesso.screenshot({ path: evidencia });
+        await testInfo.attach('Detalhes do pedido criado', { path: evidencia, contentType: 'image/png' });
       } else {
-        await expect(checkoutPage.mensagemErroTela).toBeVisible();
-        if (massa.mensagemErroEsperada) {
-          await expect(checkoutPage.mensagemErroTela).toContainText(massa.mensagemErroEsperada);
-        }
+        // Nos cenários negativos, impede criar um pedido se a interface deixar passar dados inválidos. Não simula uma resposta de sucesso.
+        await page.route('**/api/orders', route => route.request().method() === 'POST' ? route.abort() : route.continue());
+        await checkout.clicarFinalizar();
+        // Só marca falha esperada quando a massa descreve um defeito conhecido; isso não significa que a regra de negócio foi aprovada.
+        test.fail(!!massa.falhaConhecida, massa.falhaConhecida);
+        if (massa.falhaConhecida) console.log('[DEFEITO CONHECIDO]', massa.falhaConhecida);
+        // Exige o texto da validação e a permanência no checkout. Uma mensagem genérica de rede não substitui o erro esperado.
+        await expect(checkout.mensagemErroTela).toContainText(massa.mensagemErroEsperada);
+        await expect(page).toHaveURL(/checkout\.html$/);
       }
     });
   }
 
-  test('Cenário Exploratório Triste: Tentativa de checkout com carrinho vazio', async ({ authenticatedPage }) => {
-    // Tenta finalizar o pedido sem adicionar nenhum produto ou endereço
-    await checkoutPage.clicarFinalizar();
-    await expect(checkoutPage.mensagemErroTela).toBeVisible();
-  });
-}); 
-*/
-
-/* 
-import { test, expect } from '../../fixtures/auth.fixture';
-import { CheckoutPage } from '../../pages/CheckoutPage';
-import { massasCheckout } from '../../data/checkout.mass';
-
-test.describe('Módulo 07: Checkout, Pagamentos & Confirmação de Pedido (E2E)', () => {
-  let checkoutPage: CheckoutPage;
-
-  test.beforeEach(async ({ authenticatedPage }) => {
-    checkoutPage = new CheckoutPage(authenticatedPage);
-    
-    // Garante que estamos na página de painel/checkout da Loja QA
-    await authenticatedPage.goto('https://alisonmelo.github.io/tioalison-pe-t4-fap26/projetos-base/01-sistema-login/painel.html');
-    
-    // Se houver um botão ou aba para ir ao Checkout / Carrinho, clicamos nele caso exista na UI
-    const irParaCheckoutBtn = authenticatedPage.locator('#navCheckout, a[href*="checkout"], button:has-text("Checkout"), button:has-text("Carrinho")');
-    if (await irParaCheckoutBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await irParaCheckoutBtn.click();
-    }
-  });
-
-  // DATA-DRIVEN LOOP PARA OS CENÁRIOS POSITIVOS E NEGATIVOS
-  for (const massa of massasCheckout) {
-    test(`Data-Driven E2E: ${massa.perfilCenario}`, async ({ authenticatedPage }) => {
-      // 1. Act: Preenche endereço e pagamento conforme a massa de dados
-      await checkoutPage.preencherEndereco(massa.endereco);
-
-      if (massa.pagamento.metodo === 'PIX') {
-        await checkoutPage.selecionarPagamentoPix();
-      } else if (massa.pagamento.metodo === 'Cartao') {
-        await checkoutPage.preencherCartao(
-          massa.pagamento.bandeira!,
-          massa.pagamento.numeroCartao!,
-          massa.pagamento.validade!,
-          massa.pagamento.cvv!
-        );
-      }
-
-      await checkoutPage.clicarFinalizar();
-
-      // 3. Assert: Valida resultado esperado (Positivo vs Triste)
-      if (massa.sucessoEsperado) {
-        await expect(checkoutPage.modalSucesso).toBeVisible({ timeout: 10000 });
-      } else {
-        await expect(checkoutPage.mensagemErroTela).toBeVisible();
-        if (massa.mensagemErroEsperada) {
-          await expect(checkoutPage.mensagemErroTela).toContainText(massa.mensagemErroEsperada);
-        }
-      }
-    });
-  }
-
-  test('Cenário Exploratório Triste: Tentativa de checkout com carrinho vazio', async ({ authenticatedPage }) => {
-    // Tenta finalizar o pedido diretamente sem preencher endereço ou adicionar itens
-    await checkoutPage.clicarFinalizar();
-    await expect(checkoutPage.mensagemErroTela).toBeVisible();
-  });
-}); 
-*/
-
-import { test, expect } from '../../fixtures/auth.fixture';
-import { CheckoutPage } from '../../pages/CheckoutPage';
-import { massasCheckout } from '../../data/checkout.mass';
-
-test.describe('Módulo 07: Checkout, Pagamentos & Confirmação de Pedido (E2E)', () => {
-  let checkoutPage: CheckoutPage;
-
-  test.beforeEach(async ({ authenticatedPage }) => {
-    checkoutPage = new CheckoutPage(authenticatedPage);
-    
-    // 1. Acessa o painel logado do cliente
-    await authenticatedPage.goto('https://alisonmelo.github.io/tioalison-pe-t4-fap26/projetos-base/01-sistema-login/painel.html');
-    
-    // 2. Garante que o modal/aba do Carrinho ou Checkout seja aberto antes dos testes
-    // Procuramos por botões comuns que abrem o carrinho ou a área de pagamento na Loja QA
-    const abrirCarrinhoOuCheckoutBtn = authenticatedPage.locator(
-      '#cartBtn, #openCart, button:has-text("Carrinho"), button:has-text("Checkout"), a[href*="checkout"], .fa-shopping-cart, button:has-text("Comprar")'
-    );
-    
-    if (await abrirCarrinhoOuCheckoutBtn.isVisible({ timeout: 4000 }).catch(() => false)) {
-      await abrirCarrinhoOuCheckoutBtn.first().click();
-    }
-  });
-
-  // DATA-DRIVEN LOOP PARA OS CENÁRIOS POSITIVOS E NEGATIVOS
-  for (const massa of massasCheckout) {
-    test(`Data-Driven E2E: ${massa.perfilCenario}`, async ({ authenticatedPage }) => {
-      // 1. Act: Preenche endereço usando o Page Object
-      await checkoutPage.preencherEndereco(massa.endereco);
-
-      // 2. Act: Seleciona o método de pagamento correspondente
-      if (massa.pagamento.metodo === 'PIX') {
-        await checkoutPage.selecionarPagamentoPix();
-      } else if (massa.pagamento.metodo === 'Cartao') {
-        await checkoutPage.preencherCartao(
-          massa.pagamento.bandeira!,
-          massa.pagamento.numeroCartao!,
-          massa.pagamento.validade!,
-          massa.pagamento.cvv!
-        );
-      }
-
-      await checkoutPage.clicarFinalizar();
-
-      // 3. Assert: Valida resultado esperado (Sucesso vs Erro)
-      if (massa.sucessoEsperado) {
-        await expect(checkoutPage.modalSucesso).toBeVisible({ timeout: 10000 });
-      } else {
-        await expect(checkoutPage.mensagemErroTela).toBeVisible();
-        if (massa.mensagemErroEsperada) {
-          await expect(checkoutPage.mensagemErroTela).toContainText(massa.mensagemErroEsperada);
-        }
-      }
-    });
-  }
-
-  test('Cenário Exploratório Triste: Tentativa de checkout com carrinho vazio', async ({ authenticatedPage }) => {
-    // Tenta finalizar o pedido diretamente sem adicionar produtos
-    await checkoutPage.clicarFinalizar();
-    await expect(checkoutPage.mensagemErroTela).toBeVisible();
+  // Cenário independente: a fixture inicia sem itens e o acesso direto ao checkout deve ser recusado.
+  test('Carrinho vazio bloqueia o acesso ao checkout', async ({ authenticatedPage: page }) => {
+    // Começa a esperar o alerta antes de navegar; once aceita apenas o próximo diálogo para liberar a navegação.
+    const alerta = page.waitForEvent('dialog');
+    page.once('dialog', dialog => dialog.accept());
+    await page.goto(`${LOJA_URL}/checkout.html`);
+    // Confere o motivo do bloqueio, o retorno à loja e o contador zero.
+    expect((await alerta).message()).toContain('Seu carrinho está vazio');
+    await expect(page).toHaveURL(`${LOJA_URL}/loja.html`);
+    await expect(page.locator('#cartCount')).toHaveText('0');
   });
 });
