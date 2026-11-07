@@ -1,160 +1,130 @@
-# 🚀 Automação E2E & API REST - Suíte de Testes da LojaQA & Sistemas de Mercado
+﻿# LojaQA — módulo 07: pagamentos e criação de pedido
 
-> **Programa FAP 2026 - Turma 4 | Formação em Avaliação e Teste de Software**  
-> **Disciplina:** Automação de Testes com Playwright  
-> **Orientador:** Prof. Alison Melo 
-> **Alunos:** Fabiano Paiva, Marcos Cezar e Paulo Henrique. 
-> **Módulo Avaliado:** Módulo 07 — *Checkout: Pagamentos & Criação de Pedido*  
-> **Data de Apresentação:** 10/11/2026  
+Programa FAP 2026, turma 4. Professor: Alison Melo.
+Equipe: Fabiano Paiva, Marcos Cezar e Paulo Henrique.
+Apresentação prevista no enunciado: **10/11/2026**.
 
----
+Suíte Playwright com TypeScript para o módulo **07**, mais um E2E externo
+(SauceDemo) e um teste de API externa (Reqres). O login é preparação da
+sessão pela fixture; não é o foco dos testes da LojaQA.
 
-## 📌 1. Visão Geral do Projeto
+## Instalação
 
-Este repositório contém a suíte completa de automação de testes End-to-End (UI) e de API REST desenvolvida para a avaliação prática final da disciplina. O projeto simula o trabalho de engenharia de QA corporativa, aplicando boas práticas de arquitetura de software, padrão **Page Object Model (POM)**, **Data-Driven Testing (DDT)**, **Fixtures customizadas**, padrão **AAR (Arrange-Act-Assert)** e rotinas de **Teardown (limpeza de ambiente)**.
+Use Node.js LTS e, no PowerShell:
 
-Além dos testes direcionados ao **Módulo 07** da aplicação de e-commerce **LojaQA**, a suíte contempla os testes da **Seção 03 (Desafio Extra de Portfólio em Sistemas de Mercado)**, exercitando sistemas públicos de produção (UI e API).
+```powershell
+npm.cmd ci
+npx.cmd playwright install chromium
+npm.cmd run typecheck
+```
 
----
+O `package-lock.json` faz parte da entrega para permitir `npm ci`.
 
-## 🛠️ 2. Tecnologias & Ferramentas Utilizadas
+## Execução da banca
 
-| Categoria | Ferramenta / Linguagem | Finalidade |
-| :--- | :--- | :--- |
-| **Linguagem Principal** | **TypeScript** (`v5.x`) | Tipagem estática, garantindo manutenibilidade e segurança no código |
-| **Framework de Testes** | **Playwright Test** (`v1.x`) | Execução de testes E2E (UI) e requisições HTTP (`{ request }`) |
-| **Arquitetura Visual** | **Page Object Model (POM)** | Encapsulamento de seletores e ações de tela (sem asserções no POM) |
-| **Relatórios** | **Playwright HTML Reporter** | Geração de relatórios executivos de testes e rastreabilidade |
-| **Gerenciador de Pacotes**| **npm / Node.js** (`v18+`) | Gerenciamento de dependências e scripts de execução |
-| **Controle de Versão** | **Git & GitHub** | Versionamento de código e hospedagem do repositório |
+```powershell
+# 1. Módulo 07 em navegador visível
+npm.cmd run test:e2e
 
----
+# 2. API da LojaQA: status, Content-Type e JSON no console
+npm.cmd run test:api
 
-## 📐 3. Arquitetura do Repositório
+# 3. Um E2E externo e um teste de API externa
+npm.cmd run test:externos
 
-A estrutura de pastas foi idealizada para garantir separação clara de responsabilidades, alta reutilização de código e aderência estrita à rubrica de avaliação.
+# Alternativa: os dez cenários em uma execução com navegador visível
+npm.cmd run test:banca
+
+# Relatório HTML
+npm.cmd run report
+```
+
+`npm.cmd test` executa a mesma seleção completa. Os exemplos do módulo 12
+ficam fora da suíte. A execução usa um worker, pois as compras compartilham
+o cliente de demonstração e conferem o primeiro pedido da lista. Isso não
+impede outro usuário do ambiente público de comprar com a mesma conta.
+
+Não há `timeout`, `expect.timeout`, `actionTimeout` ou `navigationTimeout`
+personalizados. Os limites padrão do Playwright continuam ativos. Não há
+`waitForTimeout` nem pausas fixas. A sincronização depende de elementos,
+respostas HTTP e asserções. Localmente o navegador fica visível; no CI ele
+executa sem interface gráfica. Os scripts de banca forçam `--headed`.
+
+## Matriz de testes
+
+| ID | Tipo | Cenário | Resultado esperado |
+| --- | --- | --- | --- |
+| E2E-01 | UI | PIX | Desconto de 5% e total corretos; pedido criado e detalhes abertos |
+| E2E-02 | UI | Cartão Mastercard | Bandeira detectada; pedido criado e detalhes abertos |
+| E2E-03 | UI | Validade incompleta | Erro de preenchimento; permanece no checkout |
+| E2E-04 | UI | Cartão vencido | Rejeição — defeito conhecido na aplicação |
+| E2E-05 | UI | Carrinho vazio | Alerta e retorno à loja |
+| API-01 | API | Compra de duas unidades | Status 201, JSON válido e estoque de 10 para 8 |
+| API-02 | API | Quantidade maior que o estoque | Status 409 e estoque preservado |
+| API-03 | API | Dois pedidos simultâneos de seis unidades, estoque dez | Um 201, outro 409 e estoque quatro — defeito conhecido na API |
+| EXT-01 | UI externa | SauceDemo | Login e um item no carrinho |
+| EXT-02 | API externa | Reqres | Status 201, Content-Type JSON e usuário retornado |
+
+**Falhas esperadas não são regras de negócio aprovadas.** Dois cenários
+usam `test.fail` para registrar defeitos reproduzidos. O Playwright pode
+contá-los no total aceito, mas a equipe deve explicar essa diferença.
+Veja as [evidências e limitações](docs/modulo-07-validacao.md).
+
+## Organização
 
 ```text
-lojaqa-automacao-banca/
-├── data/
-│   └── checkout.mass.ts             # Massa de dados tipada (Cenários Felizes e Tristes)
-├── pages/
-│   ├── CheckoutPage.ts              # Page Object do Módulo 07 (SEM expect interno)
-│   └── SauceDemoPage.ts             # Page Object do Desafio Extra E2E (SauceDemo)
-├── fixtures/
-│   └── auth.fixture.ts              # Fixture customizada para login/sessão autenticada via API
-├── tests/
-│   ├── e2e/
-│   │   ├── lojaqa-modulo-07.spec.ts # Testes E2E (UI) do Módulo 07 na LojaQA
-│   │   └── externo-e2e.spec.ts      # Desafio Extra 1: CT E2E em site externo (SauceDemo)
-│   └── api/
-│       ├── lojaqa-api-07.spec.ts    # Testes de API REST ({ request }) da LojaQA com Teardown
-│       └── externo-api.spec.ts      # Desafio Extra 2: CT de API REST pública (Reqres.in)
-├── presentation/
-│   └── apresentacao-slides.pdf      # Slides oficiais apresentados na banca (.pdf)
-├── playwright.config.ts             # Configuração global do Playwright
-├── package.json                     # Scripts e dependências do projeto
-└── README.md                        # Documentação técnica do projeto
+data/                   Endereço, pagamentos e credenciais de demonstração
+fixtures/auth.fixture.ts  Preparação da sessão autenticada
+pages/CheckoutPage.ts     Seletores e ações do checkout, sem expect
+pages/SauceDemoPage.ts    Seletores e ações do sistema externo
+tests/e2e/               Interface do módulo 07 e SauceDemo
+tests/api/               API do módulo 07 e Reqres
+docs/                    Conformidade, defeitos e evidências
+presentation/            Roteiro de seis slides; apresentação final pendente
+examples/modulo-12/      Exemplos antigos preservados, não validados
 ```
 
----
+Os cenários E2E são gerados pelas massas tipadas em `data/checkout.mass.ts`.
+Cada cenário de API cria um produto exclusivo e o desativa no teardown,
+mesmo se uma asserção falhar. Os pedidos reais continuam no histórico do
+ambiente de demonstração. Page Objects contêm ações e seletores; as
+asserções ficam nos testes e na preparação das fixtures.
 
-## 🗺️ 4. Módulo Avaliado & Especificação de Rotas
+## Ambientes e limitações
 
-### 🛍️ Módulo 07 — LojaQA: Checkout, Pagamentos & Pedidos
-* **Aplicação Web (UI):** [LojaQA Plataforma](https://alisonmelo.github.io/tioalison-pe-t4-fap26/projetos-base/01-sistema-login/login.html)
-* **Base URL da API:** `https://api-qa-fap2026.onrender.com/api`
+- UI: `https://alisonmelo.github.io/tioalison-pe-t4-fap26/projetos-base/01-sistema-login/loja.html`.
+- API: `https://api-qa-fap2026.onrender.com/api`.
+- SauceDemo: `https://www.saucedemo.com/`.
+- Reqres: `https://reqres.in/api/users`. O serviço público pode aplicar limites.
 
-#### Rotas Consumidas na API:
-| Método | Endpoint | Descrição / Objetivo | Retorno Esperado |
-| :---: | :--- | :--- | :---: |
-| `POST` | `/login` | Autenticação de credenciais de usuário | `200 OK` (Token JWT) |
-| `POST` | `/seller/products` | Setup de produto para a massa de testes | `201 Created` |
-| `POST` | `/orders` | Criação de pedido de compra e baixa atômica de estoque | `201 Created` |
-| `PUT` | `/seller/products/:id` | Soft Delete / Limpeza de massa no **Teardown** | `200 OK` |
+O formulário é preenchido com endereço de teste. A consulta ViaCEP é
+bloqueada somente nesses cenários; validação de CEP pertence ao módulo 05.
+Nenhuma resposta de criação de pedido é simulada ou modificada. A resposta
+real é lida antes do redirecionamento para obter o ID do pedido. Como a
+aplicação redireciona com `orderId=undefined`, o teste abre o primeiro pedido
+da lista e compara seu ID com a API antes de validar o modal.
 
----
+O desconto PIX é validado no resumo da UI, não no total persistido da API.
+A baixa simples de estoque passa; a garantia de atomicidade sob concorrência
+falha. Não há código da aplicação/servidor neste repositório para corrigir
+esses defeitos.
 
-## 📊 5. Matriz de Cenários de Testes (E2E & API)
+## Evidências da execução
 
-| ID | Tipo | Cenário / Descrição | Tipo de Fluxo | Resultado Esperado |
-| :---: | :---: | :--- | :---: | :--- |
-| **CT-E2E-01** | UI | Finalizar compra com forma de pagamento **PIX** (5% OFF) | Positivo | Modal de confirmação exibido com sucesso |
-| **CT-E2E-02** | UI | Finalizar compra com **Cartão de Crédito** preenchido | Positivo | Exibição da tela de pedido confirmado |
-| **CT-E2E-03** | UI | Tentar checkout com data de validade de cartão vencida | Triste/Negativo | Exibição de mensagem de erro de validação |
-| **CT-E2E-04** | UI | Submeter formulário de checkout sem itens no carrinho | Triste/Negativo | Bloqueio de submissão e alerta na interface |
-| **CT-API-01** | API | Emitir pedido via `POST /orders` com payload válido | Positivo | Status `201 Created` e confirmação do JSON |
-| **CT-API-02** | API | Solicitar item com quantidade superior ao estoque | Triste/Negativo | Status `409 Conflict` (Estoque insuficiente) |
-| **CT-EXT-01** | UI | Automação de Login e adição ao carrinho no *SauceDemo* | Desafio Extra | Badge do carrinho atualizado para 1 item |
-| **CT-EXT-02** | API | Envio de `POST /api/users` na API pública *Reqres.in* | Desafio Extra | Status `201 Created` com validação do Schema |
+O relatório HTML inclui capturas do resumo PIX e do modal do pedido, além
+de screenshots, vídeo e trace nas falhas. Prints da revisão:
 
----
+![Resumo PIX com desconto](docs/evidencias/checkout-pix.png)
 
-## 🚀 6. Instalação e Configuração do Ambiente
+![Detalhes do pedido real criado](docs/evidencias/pedido-confirmado.png)
 
-### Pré-requisitos
-* **Node.js** v18.0.0 ou superior instalada.
-* **Git** instalado na máquina local.
+## Entrega da atividade
 
-### Passos para Clonar e Instalar:
+- [Repositório da equipe](https://github.com/marcoscezar19/lojaqa-automacao-banca).
+- [Conferência do PDF por requisito](docs/conformidade-atividade.md).
+- [Roteiro de seis slides](presentation/roteiro-slides.md).
+- **Pendente:** montar/exportar os slides finais (PDF ou link), ensaiar a
+  participação dos três integrantes e enviar repositório + slides no Moodle.
 
-```bash
-# 1. Clonar este repositório
-git clone https://github.com/marcoscezar19/lojaqa-automacao-banca.git
-
-# 2. Acessar a pasta do projeto
-cd lojaqa-automacao-banca
-
-# 3. Instalar as dependências do Node.js
-npm install
-
-# 4. Instalar os navegadores executáveis do Playwright
-npx playwright install
-```
-
----
-
-## 💻 7. Comandos de Execução (Banca ao Vivo)
-
-Conforme a **Regra de Ouro** e o Roteiro da Banca, utilize os comandos abaixo durante a apresentação:
-
-### 📺 7.1. Execução E2E em Tela Aberta (`--headed`)
-Executa os testes de interface gráfica abrindo o navegador visivelmente:
-
-```bash
-# Executar suíte E2E do Módulo 07 da LojaQA em modo --headed
-npx playwright test tests/e2e/lojaqa-modulo-07.spec.ts --headed
-
-# Executar Desafio Extra E2E em site externo (SauceDemo)
-npx playwright test tests/e2e/externo-e2e.spec.ts --headed
-```
-
-### 💻 7.2. Execução de API REST no Terminal (com Logs no Console)
-Executa as requisições de API direto no terminal com asserções detalhadas no console:
-
-```bash
-# Executar suíte de API do Módulo 07 da LojaQA
-npx playwright test tests/api/lojaqa-api-07.spec.ts
-
-# Executar Desafio Extra de API Externa (Reqres.in)
-npx playwright test tests/api/externo-api.spec.ts
-```
-
-### 📊 7.3. Execução Geral e Relatório HTML
-```bash
-# Rodar todos os testes do repositório
-npx playwright test
-
-# Visualizar o relatório gerado após a execução
-npx playwright show-report
-```
-
----
-
-## 👥 8. Equipe de Desenvolvimento
-
-* **Integrantes da Dupla/Trio:**
-  * Aluno 1 — *Desenvolvimento E2E & Page Objects*
-  * Aluno 2 — *Desenvolvimento API, Fixtures & README*
-* **Curso:** Formação em Avaliação e Teste de Software — Turma FAP 2026
-* **Professor Responsável:** Alison Melo
+O roteiro não substitui a apresentação final. As alterações locais precisam
+ser publicadas pela equipe antes da entrega.
