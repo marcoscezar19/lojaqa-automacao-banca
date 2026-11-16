@@ -14,7 +14,8 @@ O login faz parte da preparação da sessão pela fixture.
 
 Use Node.js LTS e, no PowerShell:
 
-```powershell
+```
+**Powershell:**
 npm.cmd ci
 npx.cmd playwright install chromium
 npm.cmd run typecheck
@@ -22,7 +23,8 @@ npm.cmd run typecheck
 
 Use Node.js LTS e, no terminal (PowerShell, CMD ou Bash):
 
-```bash
+```
+**Bash:**
 npm ci
 npx playwright install chromium
 npm run typecheck
@@ -30,7 +32,8 @@ npm run typecheck
 
 ## Execução da banca
 
-```powershell
+```
+**Powershell:**
 # 1. Módulo 07 em navegador visível
 npm.cmd run test:e2e
 
@@ -47,7 +50,8 @@ npm.cmd run test:banca
 npm.cmd run report
 ```
 
-```playwright CLI
+```
+**Playwright CLI:**
 # 1. Dispara suíte E2E do Módulo 07 em modo --headed com sessão injetada
 npx playwright test tests/e2e/lojaqa-modulo-07.spec.ts --headed
 
@@ -160,11 +164,13 @@ negativo. O código da aplicação e do servidor não faz parte deste repositór
 O Playwright apresenta os resultados no terminal e gera o relatório HTML
 em `playwright-report/`. Para abri-lo após uma execução:
 
-```powershell
+```
+**Powershell:**
 npm.cmd run report
 ```
 
-```playwright CLI
+```
+**Playwright CLI:**
 npx playwright show-report
 ```
 
