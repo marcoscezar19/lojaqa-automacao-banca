@@ -1,3 +1,5 @@
+// Comando para Execução:  npx playwright test tests/api/lojaqa-api-07.spec.ts 
+
 // APIRequestContext faz HTTP sem navegador; APIResponse permite consultar status, headers e JSON.
 import { test as base, expect, APIRequestContext, APIResponse } from '@playwright/test';
 import { clienteLogin } from '../../data/login.data';

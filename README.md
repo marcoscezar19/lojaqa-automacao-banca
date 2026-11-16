@@ -109,6 +109,7 @@ sinaliza um sucesso inesperado para revisão da marcação.
 ## Organização
 
 ```text
+lojaqa-automacao-banca/
 data/
   checkout.mass.ts         Massas tipadas de endereço e pagamentos
   login.data.ts            Credenciais de demonstração da LojaQA
