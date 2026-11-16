@@ -15,7 +15,7 @@ O login faz parte da preparação da sessão pela fixture.
 Use Node.js LTS e, no PowerShell:
 
 ```
-* **Powershell:**
+Powershell:
 npm.cmd ci
 npx.cmd playwright install chromium
 npm.cmd run typecheck
@@ -24,7 +24,7 @@ npm.cmd run typecheck
 Use Node.js LTS e, no terminal (PowerShell, CMD ou Bash):
 
 ```
-* **Bash:**
+Bash:
 npm ci
 npx playwright install chromium
 npm run typecheck
@@ -33,7 +33,7 @@ npm run typecheck
 ## Execução da banca
 
 ```
-* **Powershell:**
+Powershell:
 # 1. Módulo 07 em navegador visível
 npm.cmd run test:e2e
 
@@ -51,7 +51,7 @@ npm.cmd run report
 ```
 
 ```
-* **Playwright CLI:**
+Playwright CLI:
 # 1. Dispara suíte E2E do Módulo 07 em modo --headed com sessão injetada
 npx playwright test tests/e2e/lojaqa-modulo-07.spec.ts --headed
 
@@ -165,12 +165,12 @@ O Playwright apresenta os resultados no terminal e gera o relatório HTML
 em `playwright-report/`. Para abri-lo após uma execução:
 
 ```
-* **Powershell:**
+Powershell:
 npm.cmd run report
 ```
 
 ```
-* **Playwright CLI:**
+Playwright CLI:
 npx playwright show-report
 ```
 
@@ -187,3 +187,4 @@ Os scripts com `--headed` forçam o navegador visível.
 
 - [Repositório da equipe](https://github.com/marcoscezar19/lojaqa-automacao-banca).
 - [Apresentação da equipe](https://github.com/marcoscezar19/lojaqa-automacao-banca/blob/main/presentation/Apresenta%C3%A7%C3%A3o.pptx).
+- [Link da Apresentação da equipe](https://docs.google.com/presentation/d/1O3A-ZayUZwXtEzUxWQHN7hY-Gx1TQPnz/edit?usp=sharing&ouid=101628278460937496424&rtpof=true&sd=true).
