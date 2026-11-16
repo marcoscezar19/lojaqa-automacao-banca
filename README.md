@@ -20,7 +20,13 @@ npx.cmd playwright install chromium
 npm.cmd run typecheck
 ```
 
-O `package-lock.json` faz parte da entrega para permitir `npm ci`.
+Use Node.js LTS e, no terminal (PowerShell, CMD ou Bash):
+
+```bash
+npm ci
+npx playwright install chromium
+npm run typecheck
+```
 
 ## Execução da banca
 
@@ -34,11 +40,29 @@ npm.cmd run test:api
 # 3. Um E2E externo e um teste de API externa
 npm.cmd run test:externos
 
-# Os dez cenários em uma execução com navegador visível
+# 4. Os dez cenários em uma execução com navegador visível
 npm.cmd run test:banca
 
 # Relatório HTML
 npm.cmd run report
+```
+
+```playwright CLI
+# 1. Dispara suíte E2E do Módulo 07 em modo --headed com sessão injetada
+npx playwright test tests/e2e/lojaqa-modulo-07.spec.ts --headed
+
+# 2. Executa testes de API do Módulo 07 com logs JSON no console
+npx playwright test tests/api/lojaqa-api-07.spec.ts
+
+# 3. Executa os 2 CTs externos de mercado (SauceDemo + Reqres)
+npx playwright test tests/e2e/externo-e2e.spec.ts tests/api/externo-api.spec.ts --headed
+
+# 4. Executa a validação completa da suíte (10 cenários: E2E + API + Externos) de forma serial
+npx playwright test --headed
+npx playwright test --headed --workers=1
+
+# Relatório HTML
+npx playwright show-report
 ```
 
 `npm.cmd test` executa a mesma seleção completa. A execução usa um worker,
@@ -138,6 +162,10 @@ em `playwright-report/`. Para abri-lo após uma execução:
 
 ```powershell
 npm.cmd run report
+```
+
+```playwright CLI
+npx playwright show-report
 ```
 
 Os testes anexam capturas do resumo PIX e dos detalhes dos pedidos criados.
