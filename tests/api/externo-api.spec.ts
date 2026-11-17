@@ -1,3 +1,5 @@
+// Comando para execução: npx playwright test tests/api/externo-api.spec.ts
+
 // A fixture request faz chamadas HTTP reais sem precisar abrir uma página.
 import { test, expect } from '@playwright/test';
 

@@ -14,17 +14,26 @@ O login faz parte da preparação da sessão pela fixture.
 
 Use Node.js LTS e, no PowerShell:
 
-```powershell
+```
+Powershell:
 npm.cmd ci
 npx.cmd playwright install chromium
 npm.cmd run typecheck
 ```
 
-O `package-lock.json` faz parte da entrega para permitir `npm ci`.
+Use Node.js LTS e, no terminal (PowerShell, CMD ou Bash):
+
+```
+Bash:
+npm ci
+npx playwright install chromium
+npm run typecheck
+```
 
 ## Execução da banca
 
-```powershell
+```
+Powershell:
 # 1. Módulo 07 em navegador visível
 npm.cmd run test:e2e
 
@@ -34,11 +43,30 @@ npm.cmd run test:api
 # 3. Um E2E externo e um teste de API externa
 npm.cmd run test:externos
 
-# Os dez cenários em uma execução com navegador visível
+# 4. Os dez cenários em uma execução com navegador visível
 npm.cmd run test:banca
 
 # Relatório HTML
 npm.cmd run report
+```
+
+```
+Playwright CLI:
+# 1. Dispara suíte E2E do Módulo 07 em modo --headed com sessão injetada
+npx playwright test tests/e2e/lojaqa-modulo-07.spec.ts --headed
+
+# 2. Executa testes de API do Módulo 07 com logs JSON no console
+npx playwright test tests/api/lojaqa-api-07.spec.ts
+
+# 3. Executa os 2 CTs externos de mercado (SauceDemo + Reqres)
+npx playwright test tests/e2e/externo-e2e.spec.ts tests/api/externo-api.spec.ts --headed
+
+# 4. Executa a validação completa da suíte (10 cenários: E2E + API + Externos) de forma serial
+npx playwright test --headed
+npx playwright test --headed --workers=1
+
+# Relatório HTML
+npx playwright show-report
 ```
 
 `npm.cmd test` executa a mesma seleção completa. A execução usa um worker,
@@ -81,6 +109,7 @@ sinaliza um sucesso inesperado para revisão da marcação.
 ## Organização
 
 ```text
+lojaqa-automacao-banca/
 data/
   checkout.mass.ts         Massas tipadas de endereço e pagamentos
   login.data.ts            Credenciais de demonstração da LojaQA
@@ -136,8 +165,14 @@ negativo. O código da aplicação e do servidor não faz parte deste repositór
 O Playwright apresenta os resultados no terminal e gera o relatório HTML
 em `playwright-report/`. Para abri-lo após uma execução:
 
-```powershell
+```
+Powershell:
 npm.cmd run report
+```
+
+```
+Playwright CLI:
+npx playwright show-report
 ```
 
 Os testes anexam capturas do resumo PIX e dos detalhes dos pedidos criados.
@@ -153,3 +188,4 @@ Os scripts com `--headed` forçam o navegador visível.
 
 - [Repositório da equipe](https://github.com/marcoscezar19/lojaqa-automacao-banca).
 - [Apresentação da equipe](https://github.com/marcoscezar19/lojaqa-automacao-banca/blob/main/presentation/Apresenta%C3%A7%C3%A3o.pptx).
+- [Link da Apresentação da equipe](https://docs.google.com/presentation/d/1O3A-ZayUZwXtEzUxWQHN7hY-Gx1TQPnz/edit?usp=sharing&ouid=101628278460937496424&rtpof=true&sd=true).

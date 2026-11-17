@@ -1,4 +1,7 @@
-// Importa o test estendido pela fixture: authenticatedPage já chega com a sessão do cliente preparada.
+// Comando para Execução:  npx playwright test tests/e2e/lojaqa-modulo-07.spec.ts --headed 
+
+// Importa o test estendido pela 
+// fixture: authenticatedPage já chega com a sessão do cliente preparada.
 import { test, expect, LOJA_URL } from '../../fixtures/auth.fixture';
 import { CheckoutPage } from '../../pages/CheckoutPage';
 import { massasCheckout } from '../../data/checkout.mass';

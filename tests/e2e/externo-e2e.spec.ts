@@ -1,3 +1,5 @@
+// Comando para execução: npx playwright test tests/e2e/externo-e2e.spec.ts --headed
+
 // Este teste usa a fixture padrão do Playwright, independente da sessão e da API da LojaQA.
 import { test, expect } from '@playwright/test';
 import { SauceDemoPage } from '../../pages/SauceDemoPage';
