@@ -28,7 +28,7 @@ test('Externo: Reqres cria usuário com status 201 e JSON válido', async ({ req
   // Lê a resposta JSON e imprime o corpo para acompanhar o resultado no terminal.
   const body: UsuarioCriado = await response.json();
   console.log('[API externa] JSON:', JSON.stringify(body, null, 2));
-  // Confere os dados enviados e depois exige um ID textual não vazio e uma data válida.
+  // Confere os dados enviados e depois exige um ID textual não vazio e uma data válida..
   expect(body).toMatchObject(payload);
   expect(body.id).toEqual(expect.any(String));
   expect(body.id).not.toBe('');
